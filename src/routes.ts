@@ -6,15 +6,29 @@ const router = new Router();
 
 // Define API routes for collections
 router.post('/collections', async (ctx) => {
-	const { name } = ctx.request.body;
+	const { name } = ctx.request.body as { name: string }; // Type assertion for request body
 	if (!name) {
 		ctx.status = 400;
 		ctx.body = { message: 'Name is required for a collection.' };
 		return;
 	}
 
-	const { lastID } = await db.run('INSERT INTO collections (name) VALUES (?)', [name]);
-	ctx.body = { id: lastID, name };
+	try {
+		const lastID = await new Promise<number>((resolve, reject) => {
+			db.run('INSERT INTO collections (name) VALUES (?)', [name], function (err) {
+				if (err) {
+					reject(err);
+				} else {
+					resolve(this.lastID);
+				}
+			});
+		});
+
+		ctx.body = { id: lastID, name };
+	} catch (error) {
+		ctx.status = 500;
+		ctx.body = { message: 'Error creating a collection.' };
+	}
 });
 
 router.get('/collections', async (ctx) => {
